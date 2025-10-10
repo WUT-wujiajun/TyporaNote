@@ -1,4 +1,4 @@
-# 同步Typora笔记到Github中
+# 1.同步Typora笔记到Github中
 
 ## 1.生成SSH密钥
 
