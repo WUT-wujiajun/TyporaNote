@@ -1,4 +1,6 @@
-# 1.同步Typora笔记到Github中
+# 同步Typora笔记到Github中
+
+win破解淘宝买的，linux破解在另一个笔记中
 
 ## 1.生成SSH密钥
 
@@ -111,3 +113,16 @@ git push -u origin main  # 推送到远程仓库的main分支
   git pull origin main --allow-unrelated-histories  # 拉取远程文件并合并
   git push -u origin main  # 再次推送
   ```
+
+
+
+## 偏好设置
+
+图像使用相对路径，并且将插入的图片保存至路径形如：
+
+/home/wjj/Desktop/TyporaNote/assests/${filename}
+
+之后就会按照这样的路径保存图片，易于管理
+
+![2025-10-29 19-10-20 的屏幕截图](../assests/同步Typora笔记到Github中/2025-10-29 19-10-20 的屏幕截图.png)
+
