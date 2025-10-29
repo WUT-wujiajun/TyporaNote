@@ -118,3 +118,22 @@ sudo apt install -y gnome-shell-extensions
 
 装完一定要重启！！！
 
+## 5.截图软件Snipaste安装
+
+官网链接：https://zh.snipaste.com/
+
+下载得到：Snipaste-2.10.8-x86_64.AppImage
+
+先赋予权限：
+
+```
+chmod +x Snipaste-2.10.8-x86_64.AppImage
+```
+
+然后直接在终端中运行：
+
+```bash
+./Snipaste-2.10.8-x86_64.AppImage
+```
+
+使用F1即可截图
