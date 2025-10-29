@@ -124,4 +124,6 @@ git push -u origin main  # 推送到远程仓库的main分支
 
 之后就会按照这样的路径保存图片，易于管理
 
+**注意：图片名称不能带中文，不然上传到github无法正常显示**
+
 ![image-20251029193047462](../assests/同步Typora笔记到Github中/image-20251029193047462.png)

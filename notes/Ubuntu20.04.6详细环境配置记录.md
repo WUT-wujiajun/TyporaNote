@@ -137,3 +137,50 @@ chmod +x Snipaste-2.10.8-x86_64.AppImage
 ```
 
 使用F1即可截图
+
+将软件移动到别的位置并添加开机自启动：
+
+```
+sudo mv Snipaste-2.10.8-x86_64.AppImage /opt
+```
+
+然后在启动应用程序中添加：
+
+<img src="../assests/Ubuntu20.04.6详细环境配置记录/image-20251029211734375.png" alt="image-20251029211734375" style="zoom:33%;" />
+
+## 6.安装文献阅读工具Zotero
+
+ 参考链接：https://blog.csdn.net/xinjieyuan/article/details/105407564
+
+首先官网下载压缩包：Zotero-7.0.27_linux-x86_64.tar.bz2
+
+然后将其解压，解压后进入Zotero-7.0.27_linux-x86_64：
+
+```
+sudo mkdir /opt/zotero
+sudo mv Zotero_linux-x86_64/* /opt/zotero/
+cd /opt/zotero
+sudo ./set_launcher_icon
+```
+
+创造软连接到应用程序桌面：
+
+```
+ln -s /opt/zotero/zotero.desktop ~/.local/share/applications/zotero.desktop
+```
+
+配置插件：
+
+浏览器搜索zotero中文社区，并下载***\*Add-on Market for Zotero\****插件
+
+然后安装如下插件（Linux下无法使用doc2x，建议win下翻译好后再阅读）：
+
+<img src="../assests/Ubuntu20.04.6详细环境配置记录/image-20251029202640224.png" alt="image-20251029202640224" style="zoom:33%;" />
+
+Webdev同步文献，这样多设备就可以同步文件了：
+
+注册一个坚果云账号，依次点击用户名、账户信息、安全选项、生成一个应用并在zotero中将同步设置如下：
+
+![image-20251029204510760](../assests/Ubuntu20.04.6详细环境配置记录/image-20251029204510760.png)
+
+设置好后点击验证服务器即可，之后zotero的文件就会自动同步到坚果云中
