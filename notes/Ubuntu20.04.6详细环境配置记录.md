@@ -184,3 +184,40 @@ Webdev同步文献，这样多设备就可以同步文件了：
 ![image-20251029204510760](../assests/Ubuntu20.04.6详细环境配置记录/image-20251029204510760.png)
 
 设置好后点击验证服务器即可，之后zotero的文件就会自动同步到坚果云中
+
+## 7.Ros安装
+
+参考链接：https://blog.csdn.net/m0_73745340/article/details/135281023
+
+使用鱼香ros提供的自动安装方式安装ros
+
+```
+wget http://fishros.com/install -O fishros && . fishros
+```
+
+根据提示选择1进行ros安装，然后选择对应版本安装即可，Ubuntu20.04选择noetic
+
+![image-20251031175830456](../assests/Ubuntu20.04.6详细环境配置记录/image-20251031175830456.png)
+
+安装好后再次使用：
+
+```
+wget http://fishros.com/install -O fishros && . fishros
+```
+
+根据提示选择3进行rosdep的配置，选择4进行系统环境更新，两个都搞一下
+
+这样就安装好了
+
+## 8.超级终端工具Terminator安装
+
+```
+sudo apt install terminator
+```
+
+<img src="../assests/Ubuntu20.04.6详细环境配置记录/image-20251031203456366.png" alt="image-20251031203456366" style="zoom: 33%;" />
+
+使用ctrl+alt+T键呼出，如果点击收藏夹的终端，呼出的仍然是原版终端
+
+终端多窗口使用更方便！！！
+
