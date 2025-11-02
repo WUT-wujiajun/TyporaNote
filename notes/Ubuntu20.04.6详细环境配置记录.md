@@ -118,6 +118,16 @@ sudo apt install -y gnome-shell-extensions
 
 装完一定要重启！！！
 
+休眠后重启会出现任务栏重叠问题
+
+![image-20251101131425997](../assests/Ubuntu20.04.6详细环境配置记录/image-20251101131425997.png)
+
+解决办法：
+
+```
+gnome-extensions disable ubuntu-dock@ubuntu.com
+```
+
 ## 5.截图软件Snipaste安装
 
 官网链接：https://zh.snipaste.com/
@@ -220,4 +230,32 @@ sudo apt install terminator
 使用ctrl+alt+T键呼出，如果点击收藏夹的终端，呼出的仍然是原版终端
 
 终端多窗口使用更方便！！！
+
+## 9.关机速度慢问题解决
+
+```
+sudo gedit /etc/systemd/system.conf 
+```
+
+修改以下变量为，**记得去掉前面的#符号**：
+
+```
+DefaultTimeoutStopSec=10s
+```
+
+保存后执行：
+
+```
+systemctl daemon-reload
+```
+
+## 10.显卡掉驱动，重启后外接显示器不亮解决办法
+
+<img src="../assests/Ubuntu20.04.6详细环境配置记录/image-20251101141915670.png" alt="image-20251101141915670" style="zoom:33%;" />
+
+设置里找到软件更新，双击打开：
+
+<img src="../assests/Ubuntu20.04.6详细环境配置记录/image-20251101142147485.png" alt="image-20251101142147485" style="zoom:33%;" />
+
+选择需要的驱动并应用就好了，然后记得唤醒休眠的显示器，不然还是不会亮
 

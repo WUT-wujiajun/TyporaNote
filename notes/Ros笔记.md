@@ -130,3 +130,288 @@ rosrun ssr_pkg chao_node_py.py
 ```
 
 会得到同样的结果
+
+## 4.Topic话题和Message消息
+
+### C++实现话题发布：
+
+```c++
+#include <ros/ros.h>
+#include <std_msgs/String.h>
+
+int main(int argc, char *argv[])
+{
+    ros::init(argc,argv,"chao_node_cpp");//初始化节点，节点名chao_node_cpp需唯一
+
+    ros::NodeHandle nh;//节点句柄，是 ROS 节点与系统交互的主要接口，用于创建发布者、订阅者、访问参数服务器等
+    ros::Publisher pub = nh.advertise<std_msgs::String>("kuai_shang_che_kai_hei_qun",10);//创建话题类型、名称、队列长度
+
+    ros:: Rate loop_rate(10);//定义循环频率为10Hz（即每秒执行 10 次循环），通过后续的loop_rate.sleep()实现精确延时
+
+    while (ros::ok())
+    {
+        printf("我要开始刷屏了\n");
+        std_msgs::String msg;
+        msg.data ="国服马超，带飞";
+        pub.publish(msg);
+        loop_rate.sleep();// 按照10Hz频率休眠，控制循环速度（避免消息发布过快）
+    }
+    return 0;
+}
+```
+
+Cmakelists.txt添加：
+
+```cmake
+add_executable(chao_node_cpp src/chao_node_cpp.cpp)
+
+target_link_libraries(chao_node_cpp
+
+  ${catkin_LIBRARIES}  # 链接ROS相关库
+
+)
+```
+
+编译运行
+
+可以在终端中使用**rostopic list**指令查看当前活跃的话题,**rostopic hz+话题名称** 统计指定话题中消息包发送频率
+
+### C++实现话题订阅：
+
+新建一个包，名叫atr_pkg，用于订阅话题
+
+```
+cd catkin_ws/src/
+catkin_create_pkg atr_pkg rospy roscpp std_msgs
+```
+
+之后在该包下创建一个名叫ma_node_cpp.cpp的节点文件：
+
+```c++
+#include <ros/ros.h>
+#include <std_msgs/String.h>
+
+void chao_callback(std_msgs::String msg)//回调函数，订阅接受消息后自动调用
+{
+    printf(msg.data.c_str());
+    printf("\n");
+}
+
+int main(int argc, char *argv[])
+{
+    ros::init(argc,argv,"ma_node_cpp");
+
+    ros::NodeHandle nh;
+    ros::Subscriber sub = nh.subscribe("kuai_shang_che_kai_hei_qun",10,chao_callback);
+
+    while (ros::ok())
+    {
+        // 处理回调函数队列中的所有消息（必须调用，否则回调函数不会执行）
+        ros::spinOnce();
+    }
+    return 0;
+}
+```
+
+之后编译测试，该节点可以接收并打印来自chao_node_cpp发布的话题
+
+### 使用launch文件启动C++节点
+
+在atr_pkg文件夹下新建一个launch文件夹，之后在里面新建一个kaihei.launch，输入以下内容：
+
+```xml
+<launch>
+
+    <node pkg="ssr_pkg" type="chao_node_cpp" name="chao_node"/>
+
+    <node pkg="atr_pkg" type="ma_node_cpp" name="ma_node" output="screen"/>
+
+</launch>
+```
+
+之后就可以使用指令一次性启动这两个节点（）
+
+```
+roslaunch atr_pkg kaihei.launch 
+```
+
+### Python实现话题发布：
+
+在ssr_pkg下新建scripts下新建chao_node_py.py文件，内容如下：
+
+```python
+#!/usr/bin/env python3
+#coding=utf-8
+
+import rospy
+from std_msgs.msg import String
+
+if __name__ == '__main__':
+    rospy.init_node("chao_node")
+    rospy.logwarn("我的枪去而复返，你的生命有去无回！")
+
+    pub = rospy.Publisher("kuai_sheng_che_kai_hei_qun",String,queue_size=10)
+
+    rate =rospy.Rate(10)
+
+    while not rospy.is_shutdown():
+        rospy.loginfo("我要开始刷屏了")
+        msg = String()
+        msg.data = "国服马超，带飞"
+        pub.publish(msg)
+        rate.sleep()
+```
+
+保存后使用以下指令赋予可执行权限：
+
+```
+chmod +x chao_node_py.py
+```
+
+### Python实现话题订阅：
+
+当节点的主要工作是**订阅话题、接收消息并执行回调函数**，且不需要在后台循环执行其他任务时，`rospy.spin()` 是最简洁的选择
+
+在atr_pkg下新建scripts文件夹，里面新建ma_node_py.py文件，内容如下：
+
+```python
+#!/usr/bin/env python3
+#coding=utf-8
+
+import rospy
+from std_msgs.msg import String
+
+def chao_callback(msg):
+    rospy.loginfo(msg.data)
+
+if __name__ == '__main__':
+    rospy.init_node("ma_node")
+
+    sub = rospy.Subscriber("kuai_sheng_che_kai_hei_qun",String,chao_callback,queue_size=10)
+
+    rospy.spin()# 阻塞等待，直到节点退出，期间自动处理回调
+```
+
+### 使用launch文件启动Py节点
+
+在atr_pkg文件夹下新建一个launch文件夹，之后在里面新建一个kaihei_py.launch，输入以下内容：
+
+```xml
+<launch>
+
+    <node pkg="ssr_pkg" type="chao_node_py.py" name="chao_node"/>
+
+    <node pkg="atr_pkg" type="ma_node_py.py" name="ma_node" output="screen"/>
+
+</launch>
+```
+
+之后就可以使用指令一次性启动这两个节点（）
+
+```
+roslaunch atr_pkg kaihei_py.launch 
+```
+
+### 5.机器人运动控制
+
+新建一个软件包，叫做vel_pkg：
+
+```
+catkin_create_pkg vel_pkg roscpp rospy geometry_msgs
+```
+
+### c++实现
+
+编写vel_node.cpp:
+
+```c++
+#include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
+
+int main(int argc, char** argv)
+{
+  ros::init(argc, argv, "vel_node");
+
+  ros::NodeHandle n;
+  ros::Publisher vel_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
+
+  geometry_msgs::Twist vel_msg;
+  vel_msg.linear.x = 0.1;//0.1米每秒
+  vel_msg.linear.y = 0.0;
+  vel_msg.linear.z = 0.0;
+  vel_msg.angular.x = 0;
+  vel_msg.angular.y = 0;
+  vel_msg.angular.z = 0;
+
+  ros::Rate r(30);
+  while(ros::ok())
+  {
+    vel_pub.publish(vel_msg);
+    r.sleep();
+  }
+
+  return 0;
+}
+```
+
+Cmakelists.txt添加：
+
+```cmake
+add_executable(vel_node src/vel_node.cpp)
+add_dependencies(vel_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(vel_node
+  ${catkin_LIBRARIES}
+)
+```
+
+编译后运行：
+
+```
+roslaunch wpr_simulation wpb_simple.launch 
+rosrun vel_pkg vel_node 
+```
+
+<img src="../assests/Ros笔记/image-20251102134135641.png" alt="image-20251102134135641" style="zoom:25%;" />
+
+即可实现机器人每秒1m前进效果
+
+### Python实现
+
+编写vel_node.py:
+
+```python
+#!/usr/bin/env python3
+# coding=utf-8
+
+import rospy
+from geometry_msgs.msg import Twist
+
+if __name__ == "__main__":
+    rospy.init_node("vel_node")
+    # 发布速度控制话题
+    vel_pub = rospy.Publisher("cmd_vel",Twist,queue_size=10)
+    # 构建速度消息包并赋值
+    vel_msg = Twist()
+    vel_msg.linear.x = 0.1
+    # 构建发送频率对象
+    rate = rospy.Rate(10)
+    while not rospy.is_shutdown():
+        vel_pub.publish(vel_msg)
+        rate.sleep()
+```
+
+编译后运行：
+
+```
+roslaunch wpr_simulation wpb_simple.launch 
+rosrun vel_pkg vel_node.py
+```
+
+## 6.
+
+
+
+
+
+
+
