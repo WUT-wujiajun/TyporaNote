@@ -1,4 +1,6 @@
-# Ros笔记
+# Ros笔记（机器人工匠阿杰篇）
+
+**以下内容跟随“机器人工匠阿杰”学习：**
 
 ## 1.从github下载软件包源代码并编译
 
@@ -407,8 +409,13 @@ roslaunch wpr_simulation wpb_simple.launch
 rosrun vel_pkg vel_node.py
 ```
 
-## 6.
+# Ros笔记（赵虚左篇）
 
+官方讲义：http://www.autolabor.com.cn/book/ROSTutorials/di-2-zhang-ros-jia-gou-she-ji.html
+
+该部分直接看讲义就行
+
+## 1.服务通信
 
 
 
