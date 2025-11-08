@@ -413,12 +413,65 @@ rosrun vel_pkg vel_node.py
 
 官方讲义：http://www.autolabor.com.cn/book/ROSTutorials/di-2-zhang-ros-jia-gou-she-ji.html
 
-该部分直接看讲义就行
+该部分直接看视频和讲义就行
 
-## 1.服务通信
+# ROS笔记（仿真抓取复现篇）
+
+复现链接1：https://github.com/Suyixiu/robot_sim
+
+视频1：https://www.bilibili.com/video/BV19f4y1h73E/?spm_id_from=trigger_reload&vd_source=425167508f9e3d1f23c644a6948470f1
+
+复现链接2：https://github.com/gjt15083576031/UR5_gripper_camera_gazebo
+
+视频2：https://www.bilibili.com/video/BV18j41127qy/?spm_id_from=333.337.search-card.all.click&vd_source=425167508f9e3d1f23c644a6948470f1
 
 
 
+## 1.新建工作空间并初始化：
 
+```bash
+mkdir -p ~/UR5_ws/src
+cd ~/UR5_ws/src
+catkin_init_workspace
+```
 
+2.安装依赖
 
+```bash
+sudo apt install ros-noetic-object-recognition-msgs
+
+rosdep update
+# 自动安装依赖，这一步网络要通畅
+rosdep install --from-paths src --ignore-src -r -y
+```
+
+## 3.编译工作空间
+
+```bash
+cd ~/UR5_ws
+catkin_make
+# 编译完成后加载工作空间环境
+source devel/setup.bash
+```
+
+## 4.运行功能
+
+根据README.md中的说明，可执行以下操作：
+
+1. 在 RViz 中查看模型
+
+   ```bash
+   roslaunch gjt_ur_description view_ur5_robotiq85_gripper.launch
+   ```
+
+2. 在 Gazebo 中启动仿真
+
+   ```bash
+   roslaunch gjt_ur_gazebo ur5.launch
+   ```
+
+3. 查看相机数据（RGB+Depth）
+
+   ```bash
+   rqt_image_view
+   ```
