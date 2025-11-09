@@ -427,6 +427,8 @@ rosrun vel_pkg vel_node.py
 
 
 
+https://github.com/gjt15083576031/UR5_gripper_camera_gazebo的main分支复现：
+
 ## 1.新建工作空间并初始化：
 
 ```bash
@@ -435,14 +437,51 @@ cd ~/UR5_ws/src
 catkin_init_workspace
 ```
 
-2.安装依赖
+## 2.安装依赖
 
 ```bash
 sudo apt install ros-noetic-object-recognition-msgs
 
+cd ~/UR5_ws
+# 自动安装依赖，这一步网络要通畅（不知道为什么使用系统自带终端就可以，超级终端网络访问就有问题）
 rosdep update
-# 自动安装依赖，这一步网络要通畅
 rosdep install --from-paths src --ignore-src -r -y
+```
+
+检查是否有遗漏的包：
+
+```
+rosdep install --from-paths src --ignore-src --rosdistro noetic -y
+```
+
+<img src="../assests/Ros笔记/image-20251108160231756.png" alt="image-20251108160231756" style="zoom:33%;" />
+
+继续安装缺失的包：
+
+```bash
+# joint_trajectory_controller 是 ros_control 框架的一部分，负责控制机械臂的轨迹规划
+sudo apt install ros-noetic-joint-trajectory-controller
+# moveit_ros_visualization 是 MoveIt! 中的可视化包，负责在 RViz 中显示运动规划的结果
+sudo apt install ros-noetic-moveit-ros-visualization
+```
+
+<img src="../assests/Ros笔记/image-20251108160626130.png" alt="image-20251108160626130" style="zoom:33%;" />
+
+
+
+```bash
+# moveit_planners_ompl 是 MoveIt! 的规划器插件，用于基于 OMPL（Open Motion Planning Library）提供运动规划功能
+sudo apt install ros-noetic-moveit-planners-ompl
+# ros_controllers 是 ros_control 框架的一部分，提供了一系列控制器接口和功能，通常用来控制机械臂的关节和执行器
+sudo apt install ros-noetic-ros-control ros-noetic-ros-controllers
+```
+
+![image-20251108160837289](../assests/Ros笔记/image-20251108160837289.png)
+
+最后再来一个：
+
+```bash
+sudo apt-get install ros-noetic-rqt-joint-trajectory-controller
 ```
 
 ## 3.编译工作空间
@@ -475,3 +514,84 @@ source devel/setup.bash
    ```bash
    rqt_image_view
    ```
+
+
+
+https://zhuanlan.zhihu.com/p/665386639复现：
+
+```
+sudo apt-get install ros-noetic-moveit-simple-controller-manager
+```
+
+
+
+# UR机械臂官方包
+
+b站up“哈萨克斯坦x“解读链接：https://github.com/littlefive-robot/open_source_project_list
+
+Moveit官方文档：https://moveit.github.io/moveit_tutorials/
+
+UR机械臂noetic版本链接：https://github.com/ros-industrial/universal_robot/tree/noetic-devel
+
+使用真实机械臂需要这个包：https://github.com/UniversalRobots/Universal_Robots_ROS_Driver
+
+## 1.新建工作空间：
+
+```bash
+mkdir -p ~/UR_noetic_ws/src
+cd ~/UR_noetic_ws/src
+
+git clone -b noetic-devel https://github.com/ros-industrial/universal_robot.git
+
+cd ~/UR_noetic_ws/
+
+rosdep update
+rosdep install --rosdistro noetic --ignore-src --from-paths src
+
+# trac_ik_kinematics_plugin 是 MoveIt! 中的一种逆运动学（IK）插件
+sudo apt install ros-noetic-trac-ik-kinematics-plugin
+
+sudo apt install ros-noetic-moveit-setup-assistant
+
+sudo apt install ros-noetic-moveit
+
+sudo apt install ros-noetic-warehouse-ros-mongo
+
+# building
+catkin_make
+
+# activate this workspace
+gedit ~/.bashrc
+# 添加如下语句：
+source ~/UR_noetic_ws/devel/setup.bash
+
+```
+
+## 2.在rviz中查看机械臂模型
+
+```
+roslaunch ur_description view_ur5.launch 
+```
+
+<img src="../assests/Ros笔记/image-20251109154042255.png" alt="image-20251109154042255" style="zoom:50%;" />
+
+## 3.查看官方 UR5 机械臂的 MoveIt! 演示环境
+
+运行后拖拽小球，机械臂就会自动规划路径去接近小球：
+
+```
+roslaunch ur5_moveit_config demo.launch 
+```
+
+<img src="../assests/Ros笔记/image-20251109183036165.png" alt="image-20251109183036165" style="zoom: 25%;" />
+
+## 4.Gazebo中控制机器人
+
+```bash
+roslaunch ur_gazebo ur5_bringup.launch 
+
+roslaunch ur5_moveit_config ur5_moveit_planning_execution.launch sim:=true
+
+roslaunch ur5_moveit_config moveit_rviz.launch
+```
+
