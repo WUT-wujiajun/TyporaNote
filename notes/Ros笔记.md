@@ -427,9 +427,11 @@ rosrun vel_pkg vel_node.py
 
 
 
+## 复现1：
+
 https://github.com/gjt15083576031/UR5_gripper_camera_gazebo的main分支复现：
 
-## 1.新建工作空间并初始化：
+### 1.新建工作空间并初始化：
 
 ```bash
 mkdir -p ~/UR5_ws/src
@@ -437,7 +439,7 @@ cd ~/UR5_ws/src
 catkin_init_workspace
 ```
 
-## 2.安装依赖
+### 2.安装依赖
 
 ```bash
 sudo apt install ros-noetic-object-recognition-msgs
@@ -484,7 +486,7 @@ sudo apt install ros-noetic-ros-control ros-noetic-ros-controllers
 sudo apt-get install ros-noetic-rqt-joint-trajectory-controller
 ```
 
-## 3.编译工作空间
+### 3.编译工作空间
 
 ```bash
 cd ~/UR5_ws
@@ -493,7 +495,7 @@ catkin_make
 source devel/setup.bash
 ```
 
-## 4.运行功能
+### 4.运行功能
 
 根据README.md中的说明，可执行以下操作：
 
@@ -523,7 +525,90 @@ https://zhuanlan.zhihu.com/p/665386639复现：
 sudo apt-get install ros-noetic-moveit-simple-controller-manager
 ```
 
+## 复现2：
 
+https://github.com/pietrolechthaler/UR5-Pick-and-Place-Simulation?tab=readme-ov-file#usage的复现，该代码没有用到moveit
+
+### 1.新建工作空间：
+
+```bash
+mkdir -p ~/UR5_Pick_Place_ws/src
+```
+
+### 2.下载并调整目录结构
+
+**这一步在系统python环境下编译：**
+
+把下载后的src替换掉工作空间的src
+
+然后catkin build
+
+官方说用build就用build吧
+
+### 3.安装yolov5
+
+新建一个虚拟环境，就叫yolo吧：
+
+```bash
+# 用3.8.10，不然后面要报错
+conda create -n yolo python=3.8.10
+conda activate yolo
+```
+
+```
+cd ~
+git clone https://github.com/ultralytics/yolo
+cd yolo
+pip3 install -r requirements.txt
+```
+
+之后还要安装rospy，不然在虚拟环境下无法启动roscore:
+
+```bash
+# 安装 rospkg 及相关依赖
+pip install rospkg catkin_pkg empy==3.3.2 defusedxml
+```
+
+总结：编译要在系统环境编译，运行要在虚拟环境中运行，超级终端每新建一个终端都要激活一下虚拟环境
+
+**补充：后面发现，是empy这个包的版本不对，导致的编译失败，系统环境下的版本是3.3.2，而虚拟环境的是4.2，卸载重装后，在虚拟环境里也可以编译了!!!**
+
+### 4.使用方法
+
+**这一步要先进入虚拟环境**！！！：
+
+启动世界：
+
+```
+roslaunch levelManager lego_world.launch
+```
+
+<img src="../assests/Ros笔记/image-20251110165841036.png" alt="image-20251110165841036" style="zoom:25%;" />
+选择级别（从 1 到 4）：
+
+```bash
+#rosrun levelManager levelManager.py -l [level]
+
+#这里选择等级2
+rosrun levelManager levelManager.py -l 2
+```
+
+启动运动学过程：
+
+```
+rosrun motion_planning motion_planning.py
+```
+
+启动本地化流程（**这一步要很久，耐心等待，因为用的python3.8，yolo会警告两次才继续执行**）：
+
+```
+ rosrun vision lego-vision.py -show
+```
+
+- `-show` : show the results of the recognition and localization process with an image
+  `-show` ：用图像显示识别和定位过程的结果
+
+<img src="../assests/Ros笔记/image-20251110203439167.png" alt="image-20251110203439167" style="zoom:25%;" />
 
 # UR机械臂官方包
 
@@ -534,6 +619,8 @@ Moveit官方文档：https://moveit.github.io/moveit_tutorials/
 UR机械臂noetic版本链接：https://github.com/ros-industrial/universal_robot/tree/noetic-devel
 
 使用真实机械臂需要这个包：https://github.com/UniversalRobots/Universal_Robots_ROS_Driver
+
+**注：下载的是1.5.0版本**
 
 ## 1.新建工作空间：
 
@@ -575,6 +662,537 @@ roslaunch ur_description view_ur5.launch
 
 <img src="../assests/Ros笔记/image-20251109154042255.png" alt="image-20251109154042255" style="zoom:50%;" />
 
+以下是关于view_ur5.launch的套娃解读
+
+### view_ur5.launch：
+
+```xml
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find ur_description)/launch/load_ur5.launch"/>
+
+  <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ur_description)/cfg/view_robot.rviz" required="true" />
+</launch>
+```
+
+### load_ur5.launch：
+
+joint_limits.yaml：定义每个关节的最大/最小角度、速度、力矩限制
+
+default_kinematics.yaml：定义正/逆运动学参数，比如 DH 参数、关节偏移
+
+physical_parameters.yaml：定义物理属性（质量、惯性、重心等）
+
+visual_parameters.yaml：定义模型外观（颜色、mesh 模型路径等）
+
+robot_model：告诉下游文件当前使用的机器人型号是 **UR5**
+
+`pass_all_args="true"` 把上面定义的所有参数都传进去load_ur.launch
+
+```xml
+<?xml version="1.0"?>
+<launch>
+  <!--ur5 parameters files -->
+  <arg name="joint_limit_params" default="$(find ur_description)/config/ur5/joint_limits.yaml"/>
+  <arg name="kinematics_params" default="$(find ur_description)/config/ur5/default_kinematics.yaml"/>
+  <arg name="physical_params" default="$(find ur_description)/config/ur5/physical_parameters.yaml"/>
+  <arg name="visual_params" default="$(find ur_description)/config/ur5/visual_parameters.yaml"/>
+  <!--common parameters -->
+  <arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface" />
+  <arg name="safety_limits" default="false" doc="If True, enable the safety limits controller"/>
+  <arg name="safety_pos_margin" default="0.15" doc="The lower/upper limits in the safety controller" />
+  <arg name="safety_k_position" default="20" doc="Used to set k position in the safety controller" />
+
+  <arg name="robot_model" value="ur5" />
+
+  <!-- use common launch file and pass all arguments to it -->
+  <include file="$(find ur_description)/launch/load_ur.launch" pass_all_args="true"/>
+</launch>
+```
+
+### load_ur.launch：
+
+`doc="YAML file containing the joint limit values"`意思就是：这个 `joint_limit_params` 参数用于指定 “包含关节限制值的 YAML 文件”。
+
+```xml
+<?xml version="1.0"?>
+<launch>
+  <!--ur parameters files -->
+  <arg name="joint_limit_params" doc="YAML file containing the joint limit values"/>
+  <arg name="kinematics_params" doc="YAML file containing the robot's kinematic parameters. These will be different for each robot as they contain the robot's calibration."/>
+  <arg name="physical_params" doc="YAML file containing the phycical parameters of the robots"/>
+  <arg name="visual_params" doc="YAML file containing the visual model of the robots"/>
+  <!--common parameters  -->
+  <arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface" />
+  <arg name="safety_limits" default="false" doc="If True, enable the safety limits controller"/>
+  <arg name="safety_pos_margin" default="0.15" doc="The lower/upper limits in the safety controller" />
+  <arg name="safety_k_position" default="20" doc="Used to set k position in the safety controller" />
+
+  <arg name="robot_model" />
+
+  <!-- 
+	加载顶层（即：独立且完整的）xacro 文件，该文件对应由一组 yaml 参数文件定义的 UR 机器人型号（例如，要将 UR5 加载到 ROS 参数服务器上，需提供包含限位、运动学、物理和视觉参数的.yaml 文件路径，这些参数共同描述了一台 UR5 机器人）。
+	注意：用户通常会希望使用此目录下的其他.launch 文件（即 “load_urXXX.launch”），因为这些文件已经包含了各种受支持机器人所需参数的适当默认值。
+	注意 2：如果您有自定义的机器人配置，或者您的机器人已集成到工作单元中，请勿修改此文件，也不要将所有工作单元对象添加到 ur.xacro 文件中。请创建一个新的顶层 xacro 文件，并将 ur_macro.xacro 文件包含其中。然后编写一个新的.launch 文件，将其加载到参数服务器上。
+  -->
+  <!-- 
+	将这些参数传入到 ur.xacro 文件中，用于动态生成机器人模型的描述
+  -->
+  <param name="robot_description" command="$(find xacro)/xacro '$(find ur_description)/urdf/ur.xacro'
+    robot_model:=$(arg robot_model)
+    joint_limit_params:=$(arg joint_limit_params)
+    kinematics_params:=$(arg kinematics_params)
+    physical_params:=$(arg physical_params)
+    visual_params:=$(arg visual_params)
+    transmission_hw_interface:=$(arg transmission_hw_interface)
+    safety_limits:=$(arg safety_limits)
+    safety_pos_margin:=$(arg safety_pos_margin)
+    safety_k_position:=$(arg safety_k_position)"
+    />
+</launch>
+```
+
+### ur.xacro：
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg robot_model)_robot">
+
+   <!-- import main macro -->
+   <xacro:include filename="$(find ur_description)/urdf/inc/ur_macro.xacro"/>
+
+   <!-- parameters -->
+   <xacro:arg name="joint_limit_params" default=""/>
+   <xacro:arg name="kinematics_params" default=""/>
+   <xacro:arg name="physical_params" default=""/>
+   <xacro:arg name="visual_params" default=""/>
+   <!-- legal values:
+         - hardware_interface/PositionJointInterface
+         - hardware_interface/VelocityJointInterface
+         - hardware_interface/EffortJointInterface
+   -->
+   <xacro:arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface"/>
+   <xacro:arg name="safety_limits" default="false"/>
+   <xacro:arg name="safety_pos_margin" default="0.15"/>
+   <xacro:arg name="safety_k_position" default="20"/>
+
+   <!-- arm 调用ur_macro.xacro中定义的ur_robot宏，传入上面声明的所有参数，生成具体的机器人模型 -->
+   <xacro:ur_robot
+     prefix=""
+     joint_limits_parameters_file="$(arg joint_limit_params)"
+     kinematics_parameters_file="$(arg kinematics_params)"
+     physical_parameters_file="$(arg physical_params)"
+     visual_parameters_file="$(arg visual_params)"
+     transmission_hw_interface="$(arg transmission_hw_interface)"
+     safety_limits="$(arg safety_limits)"
+     safety_pos_margin="$(arg safety_pos_margin)"
+     safety_k_position="$(arg safety_k_position)"/>
+</robot>
+```
+
+### ur_macro.xacro：
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro">
+  <!--
+    Base UR robot series xacro macro.
+
+    NOTE: this is NOT a URDF. It cannot directly be loaded by consumers
+    expecting a flattened '.urdf' file. See the top-level '.xacro' for that
+    (but note: that .xacro must still be processed by the xacro command).
+
+    For use in '.launch' files: use one of the 'load_urX.launch' convenience
+    launch files.
+
+    This file models the base kinematic chain of a UR robot, which then gets
+    parameterised by various configuration files to convert it into a UR3(e),
+    UR5(e), UR7e, UR10(e), UR12e UR16e, UR8Long, UR15, UR18, UR20 or UR30.
+
+    NOTE: the default kinematic parameters (ie: link lengths, frame locations,
+    offets, etc) do not correspond to any particular robot. They are defaults
+    only. There WILL be non-zero offsets between the Forward Kinematics results
+    in TF (ie: robot_state_publisher) and the values reported by the Teach
+    Pendant.
+
+    For accurate (and robot-specific) transforms, the 'kinematics_parameters_file'
+    parameter MUST point to a .yaml file containing the appropriate values for
+    the targetted robot.
+
+    If using the UniversalRobots/Universal_Robots_ROS_Driver, follow the steps
+    described in the readme of that repository to extract the kinematic
+    calibration from the controller and generate the required .yaml file.
+
+    Main author of the migration to yaml configs: Ludovic Delval.
+
+    Contributors to previous versions (in no particular order):
+
+     - Felix Messmer
+     - Kelsey Hawkins
+     - Wim Meeussen
+     - Shaun Edwards
+     - Nadia Hammoudeh Garcia
+     - Dave Hershberger
+     - G. vd. Hoorn
+     - Philip Long
+     - Dave Coleman
+     - Miguel Prada
+     - Mathias Luedtke
+     - Marcel Schnirring
+     - Felix von Drigalski
+     - Felix Exner
+     - Jimmy Da Silva
+     - Ajit Krisshna N L
+     - Muhammad Asif Rana
+  -->
+
+  <xacro:include filename="$(find ur_description)/urdf/inc/ur_transmissions.xacro" />
+  <xacro:include filename="$(find ur_description)/urdf/inc/ur_common.xacro" />
+
+  <xacro:macro name="ur_robot" params="
+    prefix
+    joint_limits_parameters_file
+    kinematics_parameters_file
+    physical_parameters_file
+    visual_parameters_file
+    transmission_hw_interface:=hardware_interface/PositionJointInterface
+    safety_limits:=false
+    safety_pos_margin:=0.15
+    safety_k_position:=20"
+  >
+    <!-- Load configuration data from the provided .yaml files -->
+    <xacro:read_model_data
+      joint_limits_parameters_file="${joint_limits_parameters_file}" 
+      kinematics_parameters_file="${kinematics_parameters_file}"
+      physical_parameters_file="${physical_parameters_file}"
+      visual_parameters_file="${visual_parameters_file}"/>
+
+    <!-- Add URDF transmission elements (for ros_control) -->
+    <xacro:ur_arm_transmission prefix="${prefix}" hw_interface="${transmission_hw_interface}" />
+
+    <!-- links: main serial chain -->
+    <link name="${prefix}base_link"/>
+    <link name="${prefix}base_link_inertia">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 ${pi}"/>
+        <geometry>
+          <mesh filename="${base_visual_mesh}"/>
+        </geometry>
+        <material name="${base_visual_material_name}">
+          <color rgba="${base_visual_material_color}"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 ${pi}"/>
+        <geometry>
+          <mesh filename="${base_collision_mesh}"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial radius="${base_inertia_radius}" length="${base_inertia_length}" mass="${base_mass}">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+      </xacro:cylinder_inertial>
+    </link>
+    <link name="${prefix}shoulder_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 ${pi}"/>
+        <geometry>
+          <mesh filename="${shoulder_visual_mesh}"/>
+        </geometry>
+        <material name="${shoulder_visual_material_name}">
+          <color rgba="${shoulder_visual_material_color}"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 ${pi}"/>
+        <geometry>
+          <mesh filename="${shoulder_collision_mesh}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="${shoulder_mass}"/>
+        <origin rpy="${shoulder_inertia_rotation}" xyz="${shoulder_cog}"/>
+        <inertia
+            ixx="${shoulder_inertia_ixx}"
+            ixy="${shoulder_inertia_ixy}"
+            ixz="${shoulder_inertia_ixz}"
+            iyy="${shoulder_inertia_iyy}"
+            iyz="${shoulder_inertia_iyz}"
+            izz="${shoulder_inertia_izz}"
+        />
+      </inertial>
+    </link>
+    <link name="${prefix}upper_arm_link">
+      <visual>
+        <origin xyz="0 0 ${shoulder_offset}" rpy="${pi/2} 0 ${-pi/2}"/>
+        <geometry>
+          <mesh filename="${upper_arm_visual_mesh}"/>
+        </geometry>
+        <material name="${upper_arm_visual_material_name}">
+          <color rgba="${upper_arm_visual_material_color}"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${shoulder_offset}" rpy="${pi/2} 0 ${-pi/2}"/>
+        <geometry>
+          <mesh filename="${upper_arm_collision_mesh}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="${upper_arm_mass}"/>
+        <origin rpy="${upper_arm_inertia_rotation}" xyz="${upper_arm_cog}"/>
+        <inertia
+            ixx="${upper_arm_inertia_ixx}"
+            ixy="${upper_arm_inertia_ixy}"
+            ixz="${upper_arm_inertia_ixz}"
+            iyy="${upper_arm_inertia_iyy}"
+            iyz="${upper_arm_inertia_iyz}"
+            izz="${upper_arm_inertia_izz}"
+        />
+      </inertial>
+    </link>
+    <link name="${prefix}forearm_link">
+      <visual>
+        <origin xyz="0 0 ${elbow_offset}" rpy="${pi/2} 0 ${-pi/2}"/>
+        <geometry>
+          <mesh filename="${forearm_visual_mesh}"/>
+        </geometry>
+        <material name="${forearm_visual_material_name}">
+          <color rgba="${forearm_visual_material_color}"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${elbow_offset}" rpy="${pi/2} 0 ${-pi/2}"/>
+        <geometry>
+          <mesh filename="${forearm_collision_mesh}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="${forearm_mass}"/>
+        <origin rpy="${forearm_inertia_rotation}" xyz="${forearm_cog}"/>
+        <inertia
+            ixx="${forearm_inertia_ixx}"
+            ixy="${forearm_inertia_ixy}"
+            ixz="${forearm_inertia_ixz}"
+            iyy="${forearm_inertia_iyy}"
+            iyz="${forearm_inertia_iyz}"
+            izz="${forearm_inertia_izz}"
+        />
+      </inertial>
+    </link>
+    <link name="${prefix}wrist_1_link">
+      <visual>
+        <!-- TODO: Move this to a parameter -->
+        <origin xyz="0 0 ${wrist_1_visual_offset}" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <mesh filename="${wrist_1_visual_mesh}"/>
+        </geometry>
+        <material name="${wrist_1_visual_material_name}">
+          <color rgba="${wrist_1_visual_material_color}"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${wrist_1_visual_offset}" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <mesh filename="${wrist_1_collision_mesh}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="${wrist_1_mass}"/>
+        <origin rpy="${wrist_1_inertia_rotation}" xyz="${wrist_1_cog}"/>
+        <inertia
+            ixx="${wrist_1_inertia_ixx}"
+            ixy="${wrist_1_inertia_ixy}"
+            ixz="${wrist_1_inertia_ixz}"
+            iyy="${wrist_1_inertia_iyy}"
+            iyz="${wrist_1_inertia_iyz}"
+            izz="${wrist_1_inertia_izz}"
+        />
+      </inertial>
+    </link>
+    <link name="${prefix}wrist_2_link">
+      <visual>
+        <origin xyz="0 0 ${wrist_2_visual_offset}" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="${wrist_2_visual_mesh}"/>
+        </geometry>
+        <material name="${wrist_2_visual_material_name}">
+          <color rgba="${wrist_2_visual_material_color}"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${wrist_2_visual_offset}" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="${wrist_2_collision_mesh}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="${wrist_2_mass}"/>
+        <origin rpy="${wrist_2_inertia_rotation}" xyz="${wrist_2_cog}"/>
+        <inertia
+            ixx="${wrist_2_inertia_ixx}"
+            ixy="${wrist_2_inertia_ixy}"
+            ixz="${wrist_2_inertia_ixz}"
+            iyy="${wrist_2_inertia_iyy}"
+            iyz="${wrist_2_inertia_iyz}"
+            izz="${wrist_2_inertia_izz}"
+        />
+      </inertial>
+    </link>
+    <link name="${prefix}wrist_3_link">
+      <xacro:property name="mesh_offset" value="${wrist_3_visual_offset_xyz}" scope="parent"/>
+      <xacro:if value="${wrist_3_visual_offset_xyz == ''}">
+        <xacro:property name="mesh_offset" value="0 0 ${wrist_3_visual_offset}" scope="parent"/>
+      </xacro:if>
+      <visual>
+        <origin xyz="${mesh_offset}" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <mesh filename="${wrist_3_visual_mesh}"/>
+        </geometry>
+        <material name="${wrist_3_visual_material_name}">
+          <color rgba="${wrist_3_visual_material_color}"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="${mesh_offset}" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <mesh filename="${wrist_3_collision_mesh}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="${wrist_3_mass}"/>
+        <origin rpy="${wrist_3_inertia_rotation}" xyz="${wrist_3_cog}"/>
+        <inertia
+            ixx="${wrist_3_inertia_ixx}"
+            ixy="${wrist_3_inertia_ixy}"
+            ixz="${wrist_3_inertia_ixz}"
+            iyy="${wrist_3_inertia_iyy}"
+            iyz="${wrist_3_inertia_iyz}"
+            izz="${wrist_3_inertia_izz}"
+        />
+      </inertial>
+    </link>
+
+    <!-- joints: main serial chain -->
+    <joint name="${prefix}base_link-base_link_inertia" type="fixed">
+      <parent link="${prefix}base_link" />
+      <child link="${prefix}base_link_inertia" />
+      <!-- 'base_link' is REP-103 aligned (so X+ forward), while the internal
+           frames of the robot/controller have X+ pointing backwards.
+           Use the joint between 'base_link' and 'base_link_inertia' (a dummy
+           link/frame) to introduce the necessary rotation over Z (of pi rad).
+      -->
+      <origin xyz="0 0 0" rpy="0 0 ${pi}" />
+    </joint>
+    <joint name="${prefix}shoulder_pan_joint" type="revolute">
+      <parent link="${prefix}base_link_inertia" />
+      <child link="${prefix}shoulder_link" />
+      <origin xyz="${shoulder_x} ${shoulder_y} ${shoulder_z}" rpy="${shoulder_roll} ${shoulder_pitch} ${shoulder_yaw}" />
+      <axis xyz="0 0 1" />
+      <limit lower="${shoulder_pan_lower_limit}" upper="${shoulder_pan_upper_limit}"
+        effort="${shoulder_pan_effort_limit}" velocity="${shoulder_pan_velocity_limit}"/>
+      <xacro:if value="${safety_limits}">
+         <safety_controller soft_lower_limit="${shoulder_pan_lower_limit + safety_pos_margin}" soft_upper_limit="${shoulder_pan_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+      </xacro:if>
+      <dynamics damping="0" friction="0"/>
+    </joint>
+    <joint name="${prefix}shoulder_lift_joint" type="revolute">
+      <parent link="${prefix}shoulder_link" />
+      <child link="${prefix}upper_arm_link" />
+      <origin xyz="${upper_arm_x} ${upper_arm_y} ${upper_arm_z}" rpy="${upper_arm_roll} ${upper_arm_pitch} ${upper_arm_yaw}" />
+      <axis xyz="0 0 1" />
+      <limit lower="${shoulder_lift_lower_limit}" upper="${shoulder_lift_upper_limit}"
+        effort="${shoulder_lift_effort_limit}" velocity="${shoulder_lift_velocity_limit}"/>
+      <xacro:if value="${safety_limits}">
+         <safety_controller soft_lower_limit="${shoulder_lift_lower_limit + safety_pos_margin}" soft_upper_limit="${shoulder_lift_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+      </xacro:if>
+      <dynamics damping="0" friction="0"/>
+    </joint>
+    <joint name="${prefix}elbow_joint" type="revolute">
+      <parent link="${prefix}upper_arm_link" />
+      <child link="${prefix}forearm_link" />
+      <origin xyz="${forearm_x} ${forearm_y} ${forearm_z}" rpy="${forearm_roll} ${forearm_pitch} ${forearm_yaw}" />
+      <axis xyz="0 0 1" />
+      <limit lower="${elbow_joint_lower_limit}" upper="${elbow_joint_upper_limit}"
+        effort="${elbow_joint_effort_limit}" velocity="${elbow_joint_velocity_limit}"/>
+      <xacro:if value="${safety_limits}">
+         <safety_controller soft_lower_limit="${elbow_joint_lower_limit + safety_pos_margin}" soft_upper_limit="${elbow_joint_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+      </xacro:if>
+      <dynamics damping="0" friction="0"/>
+    </joint>
+    <joint name="${prefix}wrist_1_joint" type="revolute">
+      <parent link="${prefix}forearm_link" />
+      <child link="${prefix}wrist_1_link" />
+      <origin xyz="${wrist_1_x} ${wrist_1_y} ${wrist_1_z}" rpy="${wrist_1_roll} ${wrist_1_pitch} ${wrist_1_yaw}" />
+      <axis xyz="0 0 1" />
+      <limit lower="${wrist_1_lower_limit}" upper="${wrist_1_upper_limit}"
+        effort="${wrist_1_effort_limit}" velocity="${wrist_1_velocity_limit}"/>
+      <xacro:if value="${safety_limits}">
+         <safety_controller soft_lower_limit="${wrist_1_lower_limit + safety_pos_margin}" soft_upper_limit="${wrist_1_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+      </xacro:if>
+      <dynamics damping="0" friction="0"/>
+    </joint>
+    <joint name="${prefix}wrist_2_joint" type="revolute">
+      <parent link="${prefix}wrist_1_link" />
+      <child link="${prefix}wrist_2_link" />
+      <origin xyz="${wrist_2_x} ${wrist_2_y} ${wrist_2_z}" rpy="${wrist_2_roll} ${wrist_2_pitch} ${wrist_2_yaw}" />
+      <axis xyz="0 0 1" />
+      <limit lower="${wrist_2_lower_limit}" upper="${wrist_2_upper_limit}"
+             effort="${wrist_2_effort_limit}" velocity="${wrist_2_velocity_limit}"/>
+      <xacro:if value="${safety_limits}">
+         <safety_controller soft_lower_limit="${wrist_2_lower_limit + safety_pos_margin}" soft_upper_limit="${wrist_2_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+      </xacro:if>
+      <dynamics damping="0" friction="0"/>
+    </joint>
+    <joint name="${prefix}wrist_3_joint" type="revolute">
+      <parent link="${prefix}wrist_2_link" />
+      <child link="${prefix}wrist_3_link" />
+      <origin xyz="${wrist_3_x} ${wrist_3_y} ${wrist_3_z}" rpy="${wrist_3_roll} ${wrist_3_pitch} ${wrist_3_yaw}" />
+      <axis xyz="0 0 1" />
+      <limit lower="${wrist_3_lower_limit}" upper="${wrist_3_upper_limit}"
+             effort="${wrist_3_effort_limit}" velocity="${wrist_3_velocity_limit}"/>
+      <xacro:if value="${safety_limits}">
+         <safety_controller soft_lower_limit="${wrist_3_lower_limit + safety_pos_margin}" soft_upper_limit="${wrist_3_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+      </xacro:if>
+      <dynamics damping="0" friction="0"/>
+    </joint>
+
+    <!-- ROS-Industrial 'base' frame: base_link to UR 'Base' Coordinates transform -->
+    <link name="${prefix}base"/>
+    <joint name="${prefix}base_link-base_fixed_joint" type="fixed">
+      <!-- Note the rotation over Z of pi radians: as base_link is REP-103
+           aligned (ie: has X+ forward, Y+ left and Z+ up), this is needed
+           to correctly align 'base' with the 'Base' coordinate system of
+           the UR controller.
+      -->
+      <origin xyz="0 0 0" rpy="0 0 ${pi}"/>
+      <parent link="${prefix}base_link"/>
+      <child link="${prefix}base"/>
+    </joint>
+
+    <!-- ROS-Industrial 'flange' frame: attachment point for EEF models -->
+    <link name="${prefix}flange" />
+    <joint name="${prefix}wrist_3-flange" type="fixed">
+      <parent link="${prefix}wrist_3_link" />
+      <child link="${prefix}flange" />
+      <origin xyz="0 0 0" rpy="0 ${-pi/2.0} ${-pi/2.0}" />
+    </joint>
+
+    <!-- ROS-Industrial 'tool0' frame: all-zeros tool frame -->
+    <link name="${prefix}tool0"/>
+    <joint name="${prefix}flange-tool0" type="fixed">
+      <!-- default toolframe: X+ left, Y+ up, Z+ front -->
+      <origin xyz="0 0 0" rpy="${pi/2.0} 0 ${pi/2.0}"/>
+      <parent link="${prefix}flange"/>
+      <child link="${prefix}tool0"/>
+    </joint>
+  </xacro:macro>
+</robot>
+```
+
+
+
 ## 3.查看官方 UR5 机械臂的 MoveIt! 演示环境
 
 运行后拖拽小球，机械臂就会自动规划路径去接近小球：
@@ -588,10 +1206,163 @@ roslaunch ur5_moveit_config demo.launch
 ## 4.Gazebo中控制机器人
 
 ```bash
+# 启动 Gazebo 仿真环境，并加载 UR5 机器人模型及对应的控制器（如关节状态控制器、位置轨迹控制器）
 roslaunch ur_gazebo ur5_bringup.launch 
-
-roslaunch ur5_moveit_config ur5_moveit_planning_execution.launch sim:=true
-
+# 启动 MoveIt! 运动规划框架，连接到 Gazebo 中的仿真机器人（通过 sim:=true 参数指定仿真模式，避免连接真实硬件）
+roslaunch ur5_moveit_config moveit_planning_execution.launch sim:=true
+# 启动 RViz 并加载 MoveIt! 预配置的可视化界面（包含机器人模型、规划场景、轨迹显示等）
 roslaunch ur5_moveit_config moveit_rviz.launch
 ```
+
+在rviz中拖动球体，然后点击plan和excute，gazebo中会同步执行
+
+<img src="../assests/Ros笔记/image-20251110155828849.png" alt="image-20251110155828849" style="zoom:25%;" />
+
+
+
+# ROS-noetic+UR5上安装robotiq_85_gripper夹爪
+
+参考链接：https://blog.csdn.net/leng_peach/article/details/131724201
+
+## 1.下载robotiq_85_gripper包
+
+ros-industrial：https://github.com/ros-industrial/robotiq
+
+从下好的包中将这个文件夹移动到工作空间下
+
+<img src="../assests/Ros笔记/image-20251110134438855.png" alt="image-20251110134438855" style="zoom:25%;" />
+
+然后打开其中的test_2f_85_model.launch文件，将将`type="state_publisher"`修改为`type="robot_state_publisher"`（与 Noetic 版本匹配）
+
+之后**编译工作空间**，并执行：
+
+```
+roslaunch robotiq_2f_85_gripper_visualization test_2f_85_model.launch
+```
+
+<img src="../assests/Ros笔记/image-20251110134700807.png" alt="image-20251110134700807" style="zoom: 25%;" />
+
+即可正确显示夹爪模型
+
+## 2.在UR5的urdf文件中加入夹爪
+
+新建一个ur_with_gripper.xacro，和原来的ur.xacro做一个区别，这也是官方推荐的
+
+**依葫芦画瓢：**
+
+### view_ur5_with_gripper.launch：
+
+```xml
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find ur_description)/launch/load_ur5_with_gripper.launch"/>
+
+  <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ur_description)/cfg/view_robot.rviz" required="true" />
+</launch>
+```
+
+### load_ur5_with_gripper.launch：
+
+```xml
+<?xml version="1.0"?>
+<launch>
+  <!--ur5 parameters files -->
+  <arg name="joint_limit_params" default="$(find ur_description)/config/ur5/joint_limits.yaml"/>
+  <arg name="kinematics_params" default="$(find ur_description)/config/ur5/default_kinematics.yaml"/>
+  <arg name="physical_params" default="$(find ur_description)/config/ur5/physical_parameters.yaml"/>
+  <arg name="visual_params" default="$(find ur_description)/config/ur5/visual_parameters.yaml"/>
+  <!--common parameters -->
+  <arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface" />
+  <arg name="safety_limits" default="false" doc="If True, enable the safety limits controller"/>
+  <arg name="safety_pos_margin" default="0.15" doc="The lower/upper limits in the safety controller" />
+  <arg name="safety_k_position" default="20" doc="Used to set k position in the safety controller" />
+
+  <arg name="robot_model" value="ur5" />
+
+  <!-- use common launch file and pass all arguments to it -->
+  <include file="$(find ur_description)/launch/load_ur_with_gripper.launch" pass_all_args="true"/>
+</launch>
+```
+
+### load_ur_with_gripper.launch：
+
+```xml
+<?xml version="1.0"?>
+<launch>
+  <!--ur parameters files -->
+  <arg name="joint_limit_params" doc="YAML file containing the joint limit values"/>
+  <arg name="kinematics_params" doc="YAML file containing the robot's kinematic parameters. These will be different for each robot as they contain the robot's calibration."/>
+  <arg name="physical_params" doc="YAML file containing the phycical parameters of the robots"/>
+  <arg name="visual_params" doc="YAML file containing the visual model of the robots"/>
+  <!--common parameters  -->
+  <arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface" />
+  <arg name="safety_limits" default="false" doc="If True, enable the safety limits controller"/>
+  <arg name="safety_pos_margin" default="0.15" doc="The lower/upper limits in the safety controller" />
+  <arg name="safety_k_position" default="20" doc="Used to set k position in the safety controller" />
+
+  <arg name="robot_model" />
+
+  <!-- 
+	加载顶层（即：独立且完整的）xacro 文件，该文件对应由一组 yaml 参数文件定义的 UR 机器人型号（例如，要将 UR5 加载到 ROS 参数服务器上，需提供包含限位、运动学、物理和视觉参数的.yaml 文件路径，这些参数共同描述了一台 UR5 机器人）。
+	注意：用户通常会希望使用此目录下的其他.launch 文件（即 “load_urXXX.launch”），因为这些文件已经包含了各种受支持机器人所需参数的适当默认值。
+	注意 2：如果您有自定义的机器人配置，或者您的机器人已集成到工作单元中，请勿修改此文件，也不要将所有工作单元对象添加到 ur.xacro 文件中。请创建一个新的顶层 xacro 文件，并将 ur_macro.xacro 文件包含其中。然后编写一个新的.launch 文件，将其加载到参数服务器上。
+  -->
+  <!-- 
+	将这些参数传入到 ur.xacro 文件中，用于动态生成机器人模型的描述
+  -->
+  <param name="robot_description" command="$(find xacro)/xacro '$(find ur_description)/urdf/ur_with_gripper.xacro'
+    robot_model:=$(arg robot_model)
+    joint_limit_params:=$(arg joint_limit_params)
+    kinematics_params:=$(arg kinematics_params)
+    physical_params:=$(arg physical_params)
+    visual_params:=$(arg visual_params)
+    transmission_hw_interface:=$(arg transmission_hw_interface)
+    safety_limits:=$(arg safety_limits)
+    safety_pos_margin:=$(arg safety_pos_margin)
+    safety_k_position:=$(arg safety_k_position)"
+    />
+</launch>
+```
+
+### ur_with_gripper.xacro：
+
+**继承原 `ur.xacro` 的所有功能**，并在 UR5 末端添加 Robotiq 2F-85 夹爪：
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg robot_model)_with_gripper_robot">
+
+  <!-- 导入原始UR机械臂模型 -->
+  <xacro:include filename="$(find ur_description)/urdf/ur.xacro"/>
+
+  <!-- 导入Robotiq夹爪模型 -->
+  <xacro:include filename="$(find robotiq_2f_85_gripper_visualization)/urdf/robotiq_arg2f_85_model.xacro"/>
+
+  <!-- 定义夹爪与UR末端的连接关节 -->
+  <joint name="ur_flange_to_gripper_joint" type="fixed">
+    <parent link="flange"/>
+    <child link="robotiq_arg2f_base_link"/>
+    <origin xyz="0 0 0" rpy="0 1.57 0"/>
+  </joint>
+
+</robot>
+```
+
+### ur.xacro不变
+
+### ur_macro.xacro不变
+
+最后保存编译并运行：
+
+```bash
+roslaunch ur_description view_ur5_with_gripper.launch
+```
+
+<img src="../assests/Ros笔记/image-20251110152543017.png" alt="image-20251110152543017" style="zoom:25%;" />
+
+折腾几个小时终于出来了！！！
+
+
 
