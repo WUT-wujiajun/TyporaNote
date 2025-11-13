@@ -415,21 +415,357 @@ rosrun vel_pkg vel_node.py
 
 该部分直接看视频和讲义就行
 
-# ROS笔记（仿真抓取复现篇）
+# Ros笔记（古月居机械臂篇）
 
-复现链接1：https://github.com/Suyixiu/robot_sim
+b站视频链接：https://www.bilibili.com/video/BV1iA7AzfEpM/?spm_id_from=333.1007.0.0&vd_source=cc120a0ef5c776ffd8dd13e7732bfe47
 
-视频1：https://www.bilibili.com/video/BV19f4y1h73E/?spm_id_from=trigger_reload&vd_source=425167508f9e3d1f23c644a6948470f1
+个人度盘存档（含代码）：链接: https://pan.baidu.com/s/1bQd_1N5W0dFlCYaKmciNlA?pwd=new8 提取码: new8
 
-复现链接2：https://github.com/gjt15083576031/UR5_gripper_camera_gazebo
+这一部分代码和机器人工匠阿杰篇一样放到catkin_ws里，懒得新建工作空间了：
 
-视频2：https://www.bilibili.com/video/BV18j41127qy/?spm_id_from=333.337.search-card.all.click&vd_source=425167508f9e3d1f23c644a6948470f1
+## 03如何从零创建一个机器人模型：
 
+改写一下view_marm.launch文件，使其适配noetic：
 
+```xml
+<launch>
+    <param name="robot_description" 
+           command="$(find xacro)/xacro --inorder '$(find marm_description)/urdf/marm.xacro'" /> 
+    <node name="joint_state_publisher_gui" 
+          pkg="joint_state_publisher_gui" 
+          type="joint_state_publisher_gui" />
+    
+    <node name="robot_state_publisher" 
+          pkg="robot_state_publisher" 
+          type="robot_state_publisher" />
+    <node name="rviz" 
+          pkg="rviz" 
+          type="rviz" 
+          args="-d $(find marm_description)/urdf.rviz" 
+          required="true" />
+</launch>
+```
 
-## 复现1：
+模型可视化：
+
+```
+roslaunch marm_description view_marm.launch
+```
+
+<img src="../assests/Ros笔记/image-20251112154716766.png" alt="image-20251112154716766" style="zoom:25%;" />
+
+## 04ROS机械臂开发中的主角MoveIt！
+
+### 打开配置界面：
+
+```
+roslaunch moveit_setup_assistant setup_assistant.launch
+```
+
+<img src="../assests/Ros笔记/image-20251112155611831.png" alt="image-20251112155611831" style="zoom:25%;" />
+
+### 自碰撞矩阵：
+
+打了√的连杆之间就会禁用碰撞检查
+
+<img src="../assests/Ros笔记/image-20251112160545151.png" alt="image-20251112160545151" style="zoom:25%;" />
+
+### 添加规划组：
+
+<img src="../assests/Ros笔记/image-20251112161117727.png" alt="image-20251112161117727" style="zoom:25%;" />
+
+<img src="../assests/Ros笔记/image-20251112161136186.png" alt="image-20251112161136186" style="zoom:25%;" />
+
+### 预定义姿态：
+
+<img src="../assests/Ros笔记/image-20251112161259573.png" alt="image-20251112161259573" style="zoom:25%;" />
+
+### 创建ROS控制器：
+
+这一步好像不建议自动生成，可以跳过
+
+### 仿真：
+
+<img src="../assests/Ros笔记/image-20251112161605709.png" alt="image-20251112161605709" style="zoom:25%;" />
+
+### 生成文件：
+
+填写邮箱信息后再进行这一步操作
+
+![image-20251112162237465](../assests/Ros笔记/image-20251112162237465.png)
+
+编译后测试：
+
+```
+roslaunch test_moveit_config demo.launch 
+```
+
+## 05搭建仿真环境一样玩转ROS机械臂
+
+若要将urdf用于gazebo仿真，需要为link添加惯性参数和碰撞属性：
+
+```xml
+# 展示一部分
+<link name="base_link">
+    <inertial>
+      <origin xyz="-0.010934 0.23134 0.0051509" rpy="0 0 0" />
+      <mass value="19.574" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+    <visual>
+      <origin xyz="0.017266 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://probot_description/meshes/base_link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.017266 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://probot_description/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+```
+
+此外要为joint添加传动装置，并添加gazebo控制插件：
+
+**定义接口**: 使用 `<transmission>` 告诉 **ROS Control** 和 **Gazebo 插件** 如何将机器人模型的**六个关节**映射到驱动它们的**执行器**，并指定它们将使用**位置控制接口**。（不管是否仿真，都需要）
+
+**启用仿真**: 通过加载 `libgazebo_ros_control.so` 插件，在 **Gazebo 仿真** 中激活 **ROS Control**，从而可以通过 ROS 接口控制和监控这个虚拟机器人（仿真需要，扮演虚拟硬件驱动）
+
+```xml
+  <!-- Transmissions for ROS Control -->
+  <xacro:macro name="transmission_block" params="joint_name">
+    <transmission name="tran1">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${joint_name}">
+        <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="motor1">
+        <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+  </xacro:macro>
+  
+  <xacro:transmission_block joint_name="joint_1"/>
+  <xacro:transmission_block joint_name="joint_2"/>
+  <xacro:transmission_block joint_name="joint_3"/>
+  <xacro:transmission_block joint_name="joint_4"/>
+  <xacro:transmission_block joint_name="joint_5"/>
+  <xacro:transmission_block joint_name="joint_6"/>
+
+  <!-- ros_control plugin -->
+  <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>/probot_anno</robotNamespace>
+    </plugin>
+  </gazebo>
+```
+
+之后在gazebo中加载机器人模型，以下是启动文件probot_anno_gazebo_world.launch的内容：
+
+```xml
+<launch>
+
+  <!-- these are the arguments you can pass this launch file, for example paused:=true -->
+  <arg name="paused" default="false"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="gui" default="true"/>
+  <arg name="headless" default="false"/>
+  <arg name="debug" default="false"/>
+
+  <!-- We resume the logic in empty_world.launch -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="debug" value="$(arg debug)" />
+    <arg name="gui" value="$(arg gui)" />
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="headless" value="$(arg headless)"/>
+  </include>
+
+  <!-- 把URDF加载到ROS的参数服务器上 -->
+  <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find probot_description)/urdf/probot_anno.xacro'" /> 
+
+  <!-- 生成URDF模型到gazebo中，-model后面跟的是自定义的模型名称 -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+	args="-urdf -model probot_anno -param robot_description"/> 
+
+</launch>
+```
+
+执行指令：
+
+```
+roslaunch probot_gazebo probot_anno_gazebo_world.launch
+```
+
+即可将模型加载进gazebo中，但是这时候机械臂还不能动
+
+之后，配置Joint Trajectory Controller，编写**probot_anno_trajectory_control.yaml**：
+
+**probot_anno是命名空间**
+
+**`arm_joint_controller`** ：
+
+​	定义的控制器名称，主要作用是使机器人能够接收和执行**轨迹指令**，从而实现对机械臂六个关节的同步位置控制
+
+**`type: "position_controllers/JointTrajectoryController"`**：
+
+- 指定了控制器的具体类型。这是一个 **高层控制器**，用于接收和执行包含多个**航点（waypoints）** 的复杂**关节轨迹**。
+- 它使得像 **MoveIt!** 这样的运动规划器能够与机器人硬件/仿真进行通信。
+
+**`joints:`**：
+
+- 列出了该控制器将要管理的 **所有关节**：`joint_1` 到 `joint_6`。
+- 这意味着这个控制器将同时管理这六个关节的位置，确保它们协调运动以执行整个轨迹。
+
+```yaml
+probot_anno:
+  arm_joint_controller:
+    type: "position_controllers/JointTrajectoryController"
+    joints:
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+
+    gains:
+      joint_1:   {p: 1000.0, i: 0.0, d: 0.1, i_clamp: 0.0}
+      joint_2:   {p: 1000.0, i: 0.0, d: 0.1, i_clamp: 0.0}
+      joint_3:   {p: 1000.0, i: 0.0, d: 0.1, i_clamp: 0.0}
+      joint_4:   {p: 1000.0, i: 0.0, d: 0.1, i_clamp: 0.0}
+      joint_5:   {p: 1000.0, i: 0.0, d: 0.1, i_clamp: 0.0}
+      joint_6:   {p: 1000.0, i: 0.0, d: 0.1, i_clamp: 0.0}
+```
+
+然后编写启动文件**probot_anno_trajectory_controller.launch**：
+
+将参数加载到参数服务器
+
+```xml
+<launch>
+	<!-- 把控制参数加载到ROS的参数服务器上 -->
+    <rosparam file="$(find probot_gazebo)/config/probot_anno_trajectory_control.yaml" command="load"/>
+	<!-- 去/probot_anno命名空间下，用spawner去加载并启动在参数服务器上找到的名为 arm_joint_controller 的控制器-->
+    <node name="arm_controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+          output="screen" ns="/probot_anno" args="arm_joint_controller"/>
+
+</launch>
+```
+
+之后，配置***Joint State Controller***，编写**probot_anno_gazebo_joint_states.yaml**：
+
+**`joint_state_controller:`**: 这是控制器的名称。
+
+**`type: joint_state_controller/JointStateController`**: 指定了控制器的类型。
+
+- 这是一个**非执行**（Non-Actuating）控制器，这意味着它不发送任何控制命令（如位置、速度或力矩）给机器人关节。
+- 它的唯一作用是**收集**所有被 ROS Control 管理的关节的当前状态（位置、速度、力矩）数据，并将这些数据打包。
+
+**`publish_rate: 50`**: 指定了该控制器发布关节状态信息的频率。
+
+```yaml
+probot_anno:
+  # Publish all joint states -----------------------------------
+  joint_state_controller:
+    type: joint_state_controller/JointStateController
+    publish_rate: 50  
+```
+
+然后编写启动文件**probot_anno_gazebo_states.launch**：
+
+```xml
+<launch>
+    <!-- 将关节控制器的配置参数加载到参数服务器中 -->
+    <rosparam file="$(find probot_gazebo)/config/probot_anno_gazebo_joint_states.yaml" command="load"/>
+
+    <node name="joint_controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+          output="screen" ns="/probot_anno" args="joint_state_controller" />
+
+    <!-- 运行robot_state_publisher节点，发布tf（要做一个重映射，因为之前都要命名空间）  -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+        respawn="false" output="screen">
+        <remap from="/joint_states" to="/probot_anno/joint_states" />
+    </node>
+
+</launch>
+```
+
+之后，配置***Follow Joint Trajectory***，编写**controllers_gazebo.yaml**：
+
+***视频中这个文件好像对应config里自动生成的ros_controllers.yaml，把内容添加进这里***
+
+第一行是ROS Control **控制器管理器**本身所在的命名空间，MoveIt! 会在这个命名空间下查找控制器管理器提供的服务
+
+controller_list是控制器列表，它定义了 MoveIt! 可以使用的所有**执行器接口**：
+
+- **`- name: probot_anno/arm_joint_controller`**:
+  - **MoveIt! 接口名称:** 这是 MoveIt! 知道要连接的 **ROS Control 控制器** 的完整名称。
+  - 它将 MoveIt! 的轨迹执行请求指向您在 `controllers.yaml` 中启动的那个控制器实例。注意，它包含了命名空间 `/probot_anno`。
+- **`action_ns: follow_joint_trajectory`**:
+  - 指定了 MoveIt! 用来与该控制器通信的 **ROS Action 接口** 的命名空间。
+  - MoveIt! 会向 `/probot_anno/arm_joint_controller/follow_joint_trajectory` 这个 Action Server 发送轨迹指令。
+- **`type: FollowJointTrajectory`**:
+  - 定义了控制器遵循的接口类型。**`FollowJointTrajectory`** 是 ROS Control 中用于执行 MoveIt! 生成的轨迹的标准 Action 接口类型。
+- **`default: true`**:
+  - 表示 MoveIt! 在规划完成后，应**默认**使用这个控制器来执行轨迹。
+- **`joints:`**:
+  - 列出了该控制器管理的关节名称。MoveIt! 使用这个列表来确认其规划组的关节与此控制器管理的关节是否匹配。
+
+```yaml
+controller_manager_ns: controller_manager
+controller_list:
+  - name: probot_anno/arm_joint_controller
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    default: true
+    joints:
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+```
+
+然后编写启动文件**probot_anno_moveit_controller_manager.launch.xml**：
+
+这个文件好像对应launch里自动生成的simple_moveit_controller_manager.launch.xml，它会去加载ros_controllers.yaml
+
+这个文件启动包含关系如下（从前到后依次启动）：probot_anno_bringup_moveit.launch->moveit_planning_execution.launch->move_group.launch->trajectory_execution.launch.xml->probot_anno_moveit_controller_manager.launch.xml这娃套的，看红温了
+
+```xml
+<launch>
+<arg name="moveit_controller_manager" default="moveit_simple_controller_manager/MoveItSimpleControllerManager"/>
+<param name="moveit_controller_manager" value="$(arg moveit_controller_manager)"/>
+<!--  gazebo Controller  -->
+<rosparam file="$(find probot_anno_moveit_config)/config/controllers_gazebo.yaml"/>
+</launch>
+```
+
+最后执行：
+
+```
+roslaunch probot_gazebo probot_anno_bringup_moveit.launch 
+```
+
+<img src="../assests/Ros笔记/image-20251112203402768.png" alt="image-20251112203402768" style="zoom:25%;" />
+
+就和ur机械臂提供的gazebo实现的功能一模一样，拖拽小球规划路径后，rviz会同步gazebo机械臂做运动
+
+# Ros笔记（仿真抓取复现篇）
+
+## 复现1（提供一个带夹爪的机械臂以及一个摄像头）：
 
 https://github.com/gjt15083576031/UR5_gripper_camera_gazebo的main分支复现：
+
+视频：https://www.bilibili.com/video/BV18j41127qy/?spm_id_from=333.337.search-card.all.click&vd_source=425167508f9e3d1f23c644a6948470f1
 
 ### 1.新建工作空间并初始化：
 
@@ -525,7 +861,7 @@ https://zhuanlan.zhihu.com/p/665386639复现：
 sudo apt-get install ros-noetic-moveit-simple-controller-manager
 ```
 
-## 复现2：
+## 复现2（这么没用moveit，没啥用）：
 
 https://github.com/pietrolechthaler/UR5-Pick-and-Place-Simulation?tab=readme-ov-file#usage的复现，该代码没有用到moveit
 
@@ -609,6 +945,14 @@ rosrun motion_planning motion_planning.py
   `-show` ：用图像显示识别和定位过程的结果
 
 <img src="../assests/Ros笔记/image-20251110203439167.png" alt="image-20251110203439167" style="zoom:25%;" />
+
+## 复现3：
+
+复现链接：https://github.com/Suyixiu/robot_sim
+
+视频：https://www.bilibili.com/video/BV19f4y1h73E/?spm_id_from=trigger_reload&vd_source=425167508f9e3d1f23c644a6948470f1
+
+
 
 # UR机械臂官方包
 
@@ -1218,15 +1562,80 @@ roslaunch ur5_moveit_config moveit_rviz.launch
 
 <img src="../assests/Ros笔记/image-20251110155828849.png" alt="image-20251110155828849" style="zoom:25%;" />
 
+### ur5_bringup.launch：
+
+```xml
+<?xml version="1.0"?>
+<launch>
+  <!--
+  	在空世界中单独将单个 UR5 加载到 Gazebo 的主要入口点。
+	一组与 ur_robot_driver 所加载的控制器类似的 ros_control 控制器，将通过 “ur_control.launch.xml” 进行加载（注意：只是 “类似”，并非 “完全相同”）。
+	这个启动.launch 文件特意与 ur_robot_driver 包中的同名文件采用相同名称，因为它有着类似的作用：加载配置并启动必要的 ROS 节点，最终为优傲机器人 UR5 提供 ROS 应用程序接口。区别仅在于，在这种情况下，使用的是 Gazebo 中的虚拟模型，而非真实的机器人。
+	注意 1：由于这不是真实的机器人，仿真的真实性存在局限。其动态行为会与真实机器人不同。仅支持一部分话题、动作和服务。具体来说，不支持与控制箱本身的交互，因为 Gazebo 并不对控制箱进行仿真。这意味着：没有仪表盘服务器、没有 URScript 话题，也没有力扭矩传感器等。
+	注意 2：希望将 UR5 与其他模型集成到更复杂仿真中的用户不应修改此文件。相反，如果希望将此文件用于自定义仿真，应创建一个副本，并对该副本进行更新以适应所需的变更。
+	在这些情况下，可将此文件视为一个示例，它展示了一种启动 UR 机器人 Gazebo 仿真的方法。无需完全模仿这种设置。
+  -->
+
+  <!--Robot description and related parameter files -->
+  <arg name="robot_description_file" default="$(dirname)/inc/load_ur5.launch.xml" doc="Launch file which populates the 'robot_description' parameter."/>
+  <arg name="joint_limit_params" default="$(find ur_description)/config/ur5/joint_limits.yaml"/>
+  <arg name="kinematics_params" default="$(find ur_description)/config/ur5/default_kinematics.yaml"/>
+  <arg name="physical_params" default="$(find ur_description)/config/ur5/physical_parameters.yaml"/>
+  <arg name="visual_params" default="$(find ur_description)/config/ur5/visual_parameters.yaml"/>
+  <arg name="transmission_hw_interface" default="hardware_interface/EffortJointInterface" doc="The hardware_interface to expose for each joint in the simulated robot (one of: [hardware_interface/PositionJointInterface, hardware_interface/VelocityJointInterface, hardware_interface/EffortJointInterface])"/>
+
+  <!-- Controller configuration -->
+  <arg name="controller_config_file" default="$(find ur_gazebo)/config/ur5_controllers.yaml" doc="Config file used for defining the ROS-Control controllers."/>
+  <arg name="controllers" default="joint_state_controller eff_joint_traj_controller" doc="Controllers that are activated by default."/>
+  <arg name="stopped_controllers" default="joint_group_eff_controller" doc="Controllers that are initally loaded, but not started."/>
+
+  <!-- robot_state_publisher configuration -->
+  <arg name="tf_prefix" default="" doc="tf_prefix used for the robot."/>
+  <arg name="tf_pub_rate" default="125" doc="Rate at which robot_state_publisher should publish transforms."/>
+
+  <!-- Gazebo parameters -->
+  <arg name="paused" default="false" doc="Starts Gazebo in paused mode" />
+  <arg name="gui" default="true" doc="Starts Gazebo gui" />
+
+  <!-- Load urdf on the parameter server -->
+  <include file="$(arg robot_description_file)">
+    <arg name="joint_limit_params" value="$(arg joint_limit_params)"/>
+    <arg name="kinematics_params" value="$(arg kinematics_params)"/>
+    <arg name="physical_params" value="$(arg physical_params)"/>
+    <arg name="visual_params" value="$(arg visual_params)"/>
+    <arg name="transmission_hw_interface" value="$(arg transmission_hw_interface)"/>
+  </include>
+
+  <!-- Robot state publisher -->
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="$(arg tf_pub_rate)" />
+    <param name="tf_prefix" value="$(arg tf_prefix)" />
+  </node>
+
+  <!-- Start the 'driver' (ie: Gazebo in this case) -->
+  <include file="$(dirname)/inc/ur_control.launch.xml">
+    <arg name="controller_config_file" value="$(arg controller_config_file)"/>
+    <arg name="controllers" value="$(arg controllers)"/>
+    <arg name="gui" value="$(arg gui)"/>
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="stopped_controllers" value="$(arg stopped_controllers)"/>
+  </include>
+</launch>
+```
+
 
 
 # ROS-noetic+UR5上安装robotiq_85_gripper夹爪
 
 参考链接：https://blog.csdn.net/leng_peach/article/details/131724201
 
+参考链接（机械臂+夹爪仿真）：https://www.cnblogs.com/freedom-w/p/18657501
+
 ## 1.下载robotiq_85_gripper包
 
 ros-industrial：https://github.com/ros-industrial/robotiq
+
+第三方维护仓库：https://github.com/jr-robotics/robotiq.git
 
 从下好的包中将这个文件夹移动到工作空间下
 
@@ -1364,5 +1773,78 @@ roslaunch ur_description view_ur5_with_gripper.launch
 
 折腾几个小时终于出来了！！！
 
+## 3.将添加夹爪后的机械臂使用moveit生成配置文件
 
 
+
+# ROS机械臂开发与实践（王晓云）
+
+GitHub代码仓库地址：https://github.com/jiuyewxy/ros_arm_tutorials
+
+本仓库是《ROS机械臂开发与实践》一书的教学代码包，所有示例均提供 Python 和 C++两种编程实现方式。 ros_arm_tutorials 各功能包简要说明如下：
+
+| 软件包              | 内容                                                         |
+| ------------------- | ------------------------------------------------------------ |
+| base_demo           | 自定义消息和服务、topic发布/订阅、service服务端/客户端、参数操作示例 |
+| advance_demo        | action 的定义和服务端/客户端、ROS 常用工具、动态参数配置节点和TF2示例 |
+| myrobot_description | 三自由度机械臂和移动小车的URDF模型                           |
+| darm                | Solidworks 导出的 XBot-Arm 机械臂原始 URDF 模型文件包        |
+| xarm_description    | XBot-Arm 机械臂 URDF 模型文件包                              |
+| urdf_demo           | URDF 模型和 robot_state_publisher 节点的使用示例             |
+| xarm_driver         | XBot-Arm 真实机械臂驱动包                                    |
+| xarm_moveit_config  | 使用 配置助手生成的 XBot-Arm 机械臂 MoveIt!配置和启动功能包  |
+| xarm_moveit_demo    | 使用 MoveIt!的编程接口实现路径规划、避障以及机械臂的抓取和放置 |
+| xarm_vision         | 摄像头启动、相机标定、颜色检测、AR标签识别、手眼标定、自动抓取与放置示例 |
+
+除了 ros_arm_tutorials 中包含的功能包，本书中还使用了 find_object_2d、ar_track_alvar 和 easy_handeye等 ROS 开源功能包。
+
+## 代码下载与编译
+
+进入ROS工作空间的src目录，可以使用下面命令下载 GitHub 上对应分支的代码：
+
+```
+git clone -b noetic-devel https://github.com/jiuyewxy/ros_arm_tutorials.git
+```
+
+代码下载完成后，首先源码安装几个依赖项。
+
+进入工作空间src目录，源码安装serial：
+
+```
+cd ~/tutorial_ws/src
+git clone https://github.com/wjwwood/serial.git
+cd serial
+make
+make install
+```
+
+修改serial文件夹下的CMakeLists.txt文件，将第65行include_directories(include) 改为：
+
+```
+include_directories(include  ${catkin_INCLUDE_DIRS})
+```
+
+进入工作空间src目录，下载ar-track-alvar源码：
+
+```
+cd ~/tutorial_ws/src
+git clone https://github.com/machinekoder/ar_track_alvar.git -b noetic-devel
+```
+
+在终端依次输入以下命令安装依赖包并编译代码。
+
+```
+cd ~/tutorial_ws/
+rosdep install --from-paths src -i -y
+sudo apt-get install ros-noetic-ecl-*
+sudo apt-get install ros-noetic-moveit*
+catkin_make
+```
+
+代码编译通过后说明教学代码包已安装成功。
+
+# 精通ROS机器人编程第三版
+
+电子书链接：https://dcd.cmpkgs.com/ebook/web/index.html#/pdfReader?SkuExternalId=P00109-01-784BF859556FC8677532853AB98312A7AD3227880A19F1569906E089B38434CB-Pdf&Extra=qEbbiKvTB-FwgKrzAi0f6H2MLnwptRFeYwpPEF5VYKNfnzO2XpqXXt_U4wNrqHljQyFHDEZwzoHYQg5JNri32hEAx9u4UgjPfcKBiupAfl1q6wLxxJoiVNfkGS166SL4rK-ihZeTt4InKiw-AragRHTvXPKK1M9IGI6MJIcHz0lheCK952uUGN35tYwIC6yF4LaVWcQXXyARmrdq31Q1nvOIc7bVYYQGrG5fFioT9kTg7X6ZOOLEv_-NS9rSyDMtdFbzyDr1JkqxX6tJIDEqlA%3D%3D
+
+代码链接：https://github.com/PacktPublishing/Mastering-ROS-for-Robotics-Programming-Third-edition

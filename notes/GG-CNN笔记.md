@@ -188,10 +188,6 @@ python train_ggcnn.py --description training_example --network ggcnn --dataset c
 python train_ggcnn.py --description training_example --network ggcnn --dataset jacquard --dataset-path /home/wjj/GG-CNN/ggcnn/Samples
 ```
 
-
-
-
-
 ## 5.评估、可视化
 
 训练网络的评估或可视化是使用 `eval_ggcnn.py` 脚本完成的。运行 `eval_ggcnn.py --help` 以获得全套选项。
