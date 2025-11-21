@@ -25,6 +25,8 @@ pytorch历史版本：https://pytorch.org/get-started/previous-versions/
 
 <img src="../assests/GG-CNN笔记/image-20251106174538784.png" alt="image-20251106174538784" style="zoom:33%;" />
 
+康奈尔数据集标注的时候每四行数据是一个矩形框，并且默认第一行指向第二行的方向是抓取的开口方向，ggcnn就是这么读取数据的
+
 ###  **Jacquard**数据集：
 
 官方链接：https://jacquard.liris.cnrs.fr/
@@ -217,4 +219,6 @@ python eval_ggcnn.py --network /home/wjj/GG-CNN/ggcnn/ggcnn_weights_cornell/ggcn
 (ggcnn-new) wjj@wjj-pc:~/GG-CNN/ggcnn$ 
 python eval_ggcnn.py --network /home/wjj/GG-CNN/ggcnn/ggcnn_weights_cornell/ggcnn_epoch_23_cornell --dataset jacquard --dataset-path /home/wjj/GG-CNN/ggcnn/Samples --iou-eval --vis
 ```
+
+
 

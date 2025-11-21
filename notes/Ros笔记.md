@@ -952,6 +952,15 @@ rosrun motion_planning motion_planning.py
 
 视频：https://www.bilibili.com/video/BV19f4y1h73E/?spm_id_from=trigger_reload&vd_source=425167508f9e3d1f23c644a6948470f1
 
+```
+mkdir -p ~/robotsim_ws/src
+cd ~/robotsim_ws/src
+
+git clone https://github.com/Suyixiu/robot_sim.git
+
+cd ~/UR_noetic_ws/
+```
+
 
 
 # UR机械臂官方包
@@ -1747,7 +1756,7 @@ roslaunch robotiq_2f_85_gripper_visualization test_2f_85_model.launch
   <xacro:include filename="$(find ur_description)/urdf/ur.xacro"/>
 
   <!-- 导入Robotiq夹爪模型 -->
-  <xacro:include filename="$(find robotiq_2f_85_gripper_visualization)/urdf/robotiq_arg2f_85_model.xacro"/>
+  <xacro:include filename="$(find robotiq_2f_85_gripper_visualization)/urdf/robotiq_arg2f_85.xacro"/>
 
   <!-- 定义夹爪与UR末端的连接关节 -->
   <joint name="ur_flange_to_gripper_joint" type="fixed">
